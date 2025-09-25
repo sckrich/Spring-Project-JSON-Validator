@@ -1,8 +1,10 @@
+---
+version: null
 meta:
   environment: jvm
   toolchain:
     name: maven
-    version: "21"
+    version: 21
 build:
   image: null
   args: spring-boot:repackage
@@ -12,5 +14,4 @@ run:
   image: null
   jarName: demo-0.0.1-SNAPSHOT.jar
   persistenceMount: /data
-  containerPort: "8080"
-  servicePort: "80"
+  containerPort: 8080
