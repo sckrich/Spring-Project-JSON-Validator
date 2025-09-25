@@ -14,7 +14,7 @@ public class JsonValidationService {
 
     public JsonValidationResult validateJson(JsonNode schemaNode, JsonNode dataNode) {
         try {
-            JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7).getSchema(schemaNode);
+            JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V4).getSchema(schemaNode);
             Set<ValidationMessage> errors = schema.validate(dataNode);
 
             if (!errors.isEmpty()) {
