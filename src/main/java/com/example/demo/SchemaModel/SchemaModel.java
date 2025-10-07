@@ -11,14 +11,18 @@ public class SchemaModel {
     private JsonNode schema;
     
     public SchemaModel() {}
-    
+    /**
+     * Creates a new SchemaModel with auto-generated upload date
+     * @param id unique identifier for the schema
+     * @param name human-readable name of the schema
+     * @param schema JSON schema content as JsonNode
+     */
     public SchemaModel(Long id, String name, JsonNode schema) {
         this.id = id;
         this.name = name;
         this.schema = schema;
         this.uploadDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
     }
-    
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     

@@ -17,14 +17,22 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.Map;
 import java.util.LinkedHashMap;
-
+/**
+ * Validates JSON data against JSON Schema using networknt library
+ * Provides schema storage and management capabilities
+ */
 @Service
 public class JsonValidationService {
 
     private final ConcurrentHashMap<Long, SchemaModel> schemaStorage = new ConcurrentHashMap<>();
     private final AtomicLong idCounter = new AtomicLong(1);
     private final ObjectMapper objectMapper = new ObjectMapper();
-
+    /**
+     * Validates JSON data against provided JSON schema
+     * @param schemaNode JSON schema as JsonNode
+     * @param dataNode JSON data to validate as JsonNode
+     * @return validation result with status and error messages
+     */
     public JsonValidationResult validateJson(JsonNode schemaNode, JsonNode dataNode) {
         try {
             JsonSchema validatorSchema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V4).getSchema(schemaNode);
@@ -46,14 +54,24 @@ public class JsonValidationService {
             return new JsonValidationResult(false, errorMessages);
         }
     }
-
+    /**
+     * Saves a new JSON schema to storage with auto-generated ID
+     * @param name human-readable schema name
+     * @param schemaNode JSON schema content as JsonNode
+     * @return generated schema ID
+     */
     public Long saveSchema(String name, JsonNode schemaNode) {
         Long schemaId = idCounter.getAndIncrement();
         SchemaModel schemaModel = new SchemaModel(schemaId, name, schemaNode);
         schemaStorage.put(schemaId, schemaModel);
         return schemaId;
     }
-
+    /**
+     * Validates JSON data against schema stored by ID
+     * @param schemaId ID of the stored schema
+     * @param dataNode JSON data to validate as JsonNode
+     * @return validation result with status and error messages
+     */
     public JsonValidationResult validateJsonById(Long schemaId, JsonNode dataNode) {
         try {
             SchemaModel schemaModel = schemaStorage.get(schemaId);
@@ -83,15 +101,26 @@ public class JsonValidationService {
             return new JsonValidationResult(false, errorMessages);
         }
     }
-
+    /**
+     * Checks if schema with given ID exists in storage
+     * @param schemaId schema ID to check
+     * @return true if schema exists, false otherwise
+     */
     public boolean schemaExists(Long schemaId) {
         return schemaStorage.containsKey(schemaId);
     }
-
+    /**
+     * Deletes schema from storage by ID
+     * @param schemaId ID of schema to delete
+     * @return true if schema was deleted, false if not found
+     */
     public boolean deleteSchema(Long schemaId) {
         return schemaStorage.remove(schemaId) != null;
     }
-
+    /**
+     * Retrieves all stored schemas with full content
+     * @return map of schema IDs to complete schema information
+     */
     public Map<String, Object> getAllSchemas() {
         Map<String, Object> result = new LinkedHashMap<>();
         
@@ -110,7 +139,11 @@ public class JsonValidationService {
         
         return result;
     }
-
+    /**
+     * Retrieves specific schema by ID with full content
+     * @param schemaId ID of schema to retrieve
+     * @return schema information or null if not found
+     */
     public Object getSchema(Long schemaId) {
         SchemaModel schemaModel = schemaStorage.get(schemaId);
         if (schemaModel == null) {
@@ -125,7 +158,10 @@ public class JsonValidationService {
         
         return schemaInfo;
     }
-
+    /**
+     * Retrieves metadata for all schemas without full schema content
+     * @return map of schema IDs to schema metadata (id, name, uploadDate)
+     */
     public Map<String, Object> getAllSchemasMetadata() {
         Map<String, Object> result = new LinkedHashMap<>();
         
@@ -143,7 +179,10 @@ public class JsonValidationService {
         
         return result;
     }
-
+    /**
+     * Gets total number of stored schemas
+     * @return count of stored schemas
+     */
     public int getSchemaCount() {
         return schemaStorage.size();
     }

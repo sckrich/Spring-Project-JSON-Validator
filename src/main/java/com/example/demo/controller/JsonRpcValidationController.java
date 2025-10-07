@@ -21,7 +21,10 @@ public class JsonRpcValidationController {
     private JsonValidationService validationService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
+    /**
+     * Handles incoming JSON-RPC requests for JSON validation
+     * Supported methods: validate, validateById, saveSchema, getAllSchemas, getSchema, getAllSchemasMetadata
+     */
     @PostMapping("/api/validation")
     public ResponseEntity<String> handleJsonRpc(@RequestBody String jsonRequest) {
         Object requestId = null;
@@ -49,7 +52,9 @@ public class JsonRpcValidationController {
             return ResponseEntity.ok(errorResponse.toJSONString());
         }
     }
-
+    /**
+     * Extracts request ID from raw JSON
+     */
     private Object extractRequestIdFromRawJson(String jsonRequest) {
         try {
             JsonNode rootNode = objectMapper.readTree(jsonRequest);
@@ -67,7 +72,9 @@ public class JsonRpcValidationController {
         }
         return null;
     }
-
+    /**
+     * Main request processing method that routes requests to appropriate handler methods
+     */
     private JSONRPC2Response processRequest(JSONRPC2Request request) {
         try {
             switch (request.getMethod()) {
@@ -99,7 +106,10 @@ public class JsonRpcValidationController {
             );
         }
     }
-    
+    /**
+     * Handles the 'validate' method - validates JSON against provided schema
+     * Required parameters: schema, json
+     */
     private JSONRPC2Response handleValidateMethod(JSONRPC2Request request) throws JSONRPC2Error {
         Map<String, Object> params = request.getNamedParams();
         if (params == null) {
@@ -124,7 +134,10 @@ public class JsonRpcValidationController {
             throw new JSONRPC2Error(JSONRPC2Error.INTERNAL_ERROR.getCode(), "Validation error: " + e.getMessage());
         }
     }
-
+    /**
+     * Handles the 'validateById' method - validates JSON against schema stored by ID
+     * Required parameters: schemaId, json
+     */
     private JSONRPC2Response handleValidateByIdMethod(JSONRPC2Request request) throws JSONRPC2Error {
         Map<String, Object> params = request.getNamedParams();
         if (params == null) {
@@ -158,7 +171,10 @@ public class JsonRpcValidationController {
             throw new JSONRPC2Error(JSONRPC2Error.INTERNAL_ERROR.getCode(), "Validation error: " + e.getMessage());
         }
     }
-
+    /**
+     * Handles the 'saveSchema' method - saves a new schema with name
+     * Required parameters: name, schema
+     */
     private JSONRPC2Response handleSaveSchemaMethod(JSONRPC2Request request) throws JSONRPC2Error {
         Map<String, Object> params = request.getNamedParams();
         if (params == null) {
@@ -186,7 +202,9 @@ public class JsonRpcValidationController {
             throw new JSONRPC2Error(JSONRPC2Error.INTERNAL_ERROR.getCode(), "Schema save error: " + e.getMessage());
         }
     }
-
+    /**
+     * Handles the 'getAllSchemas' method - retrieves all stored schemas with full content
+     */
     private JSONRPC2Response handleGetAllSchemasMethod(JSONRPC2Request request) {
         Map<String, Object> allSchemas = validationService.getAllSchemas();
         
@@ -196,7 +214,10 @@ public class JsonRpcValidationController {
         
         return new JSONRPC2Response(result, request.getID());
     }
-
+    /**
+     * Handles the 'getSchema' method - retrieves specific schema by ID
+     * Required parameters: schemaId
+     */
     private JSONRPC2Response handleGetSchemaMethod(JSONRPC2Request request) throws JSONRPC2Error {
         Map<String, Object> params = request.getNamedParams();
         if (params == null) {
@@ -227,7 +248,9 @@ public class JsonRpcValidationController {
             throw new JSONRPC2Error(JSONRPC2Error.INVALID_PARAMS.getCode(), "Invalid schema ID format. Must be a number.");
         }
     }
-
+    /**
+     * Handles the 'getAllSchemasMetadata' method - retrieves schemas metadata without full content
+     */
     private JSONRPC2Response handleGetAllSchemasMetadataMethod(JSONRPC2Request request) {
         Map<String, Object> allSchemasMetadata = validationService.getAllSchemasMetadata();
         
