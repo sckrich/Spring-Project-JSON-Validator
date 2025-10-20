@@ -5,26 +5,28 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class SchemaModel {
-    private Long id;
+    private Integer id;
     private String name;
     private String uploadDate; 
     private JsonNode schema;
     
     public SchemaModel() {}
+    
     /**
      * Creates a new SchemaModel with auto-generated upload date
      * @param id unique identifier for the schema
      * @param name human-readable name of the schema
      * @param schema JSON schema content as JsonNode
      */
-    public SchemaModel(Long id, String name, JsonNode schema) {
+    public SchemaModel(Integer id, String name, JsonNode schema) {
         this.id = id;
         this.name = name;
         this.schema = schema;
         this.uploadDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
     }
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
     
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

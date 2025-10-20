@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Map;
 import java.util.LinkedHashMap;
 
@@ -29,8 +29,8 @@ public class JsonValidationService {
 
     private static final Logger logger = LoggerFactory.getLogger(JsonValidationService.class);
     
-    private final ConcurrentHashMap<Long, SchemaModel> schemaStorage = new ConcurrentHashMap<>();
-    private final AtomicLong idCounter = new AtomicLong(1);
+    private final ConcurrentHashMap<Integer, SchemaModel> schemaStorage = new ConcurrentHashMap<>();
+    private final AtomicInteger idCounter = new AtomicInteger(1);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -65,7 +65,7 @@ public class JsonValidationService {
         } catch (Exception e) {
             logger.error("Exception during JSON validation: {}", e.getMessage(), e);
             List<String> errorMessages = new ArrayList<>();
-            errorMessages.add("Validation error: " + e.getMessage());
+            errorMessages.add("Parse schema error: " + e.getMessage());
             return new JsonValidationResult(false, errorMessages);
         }
     }
@@ -76,10 +76,10 @@ public class JsonValidationService {
      * @param schemaNode JSON schema content as JsonNode
      * @return generated schema ID
      */
-    public Long saveSchema(String name, JsonNode schemaNode) {
+    public Integer saveSchema(String name, JsonNode schemaNode) {
         logger.info("Saving new schema with name: '{}'", name);
         
-        Long schemaId = idCounter.getAndIncrement();
+        Integer schemaId = idCounter.getAndIncrement();
         SchemaModel schemaModel = new SchemaModel(schemaId, name, schemaNode);
         schemaStorage.put(schemaId, schemaModel);
         
@@ -94,7 +94,7 @@ public class JsonValidationService {
      * @param dataNode JSON data to validate as JsonNode
      * @return validation result with status and error messages
      */
-    public JsonValidationResult validateJsonById(Long schemaId, JsonNode dataNode) {
+    public JsonValidationResult validateJsonById(int schemaId, JsonNode dataNode) {
         logger.info("Starting JSON validation with schema ID: {}", schemaId);
         logger.debug("Data to validate: {}", dataNode);
         
@@ -103,7 +103,7 @@ public class JsonValidationService {
             if (schemaModel == null) {
                 logger.warn("Schema with ID {} not found", schemaId);
                 List<String> errorMessages = new ArrayList<>();
-                errorMessages.add("Schema with ID " + schemaId + " not found");
+                errorMessages.add("SCHEMA_NOT_FOUND: Schema with ID " + schemaId + " not found");
                 return new JsonValidationResult(false, errorMessages);
             }
 
@@ -140,7 +140,7 @@ public class JsonValidationService {
      * @param schemaId schema ID to check
      * @return true if schema exists, false otherwise
      */
-    public boolean schemaExists(Long schemaId) {
+    public boolean schemaExists(Integer schemaId) {
         boolean exists = schemaStorage.containsKey(schemaId);
         logger.debug("Checked existence of schema ID {}: {}", schemaId, exists);
         return exists;
@@ -151,7 +151,7 @@ public class JsonValidationService {
      * @param schemaId ID of schema to delete
      * @return true if schema was deleted, false if not found
      */
-    public boolean deleteSchema(Long schemaId) {
+    public boolean deleteSchema(Integer schemaId) {
         SchemaModel removed = schemaStorage.remove(schemaId);
         if (removed != null) {
             logger.info("Schema with ID {} deleted successfully", schemaId);
@@ -171,8 +171,8 @@ public class JsonValidationService {
         
         Map<String, Object> result = new LinkedHashMap<>();
         
-        for (Map.Entry<Long, SchemaModel> entry : schemaStorage.entrySet()) {
-            Long schemaId = entry.getKey();
+        for (Map.Entry<Integer, SchemaModel> entry : schemaStorage.entrySet()) {
+            Integer schemaId = entry.getKey();
             SchemaModel schemaModel = entry.getValue();
             
             Map<String, Object> schemaInfo = new LinkedHashMap<>();
@@ -193,7 +193,7 @@ public class JsonValidationService {
      * @param schemaId ID of schema to retrieve
      * @return schema information or null if not found
      */
-    public Object getSchema(Long schemaId) {
+    public Object getSchema(Integer schemaId) {
         logger.info("Retrieving schema with ID: {}", schemaId);
         
         SchemaModel schemaModel = schemaStorage.get(schemaId);
@@ -221,8 +221,8 @@ public class JsonValidationService {
         
         Map<String, Object> result = new LinkedHashMap<>();
         
-        for (Map.Entry<Long, SchemaModel> entry : schemaStorage.entrySet()) {
-            Long schemaId = entry.getKey();
+        for (Map.Entry<Integer, SchemaModel> entry : schemaStorage.entrySet()) {
+            Integer schemaId = entry.getKey();
             SchemaModel schemaModel = entry.getValue();
             
             Map<String, Object> metadata = new LinkedHashMap<>();
