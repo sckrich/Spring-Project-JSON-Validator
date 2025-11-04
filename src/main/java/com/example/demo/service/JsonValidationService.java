@@ -69,17 +69,51 @@ public class JsonValidationService {
             return new JsonValidationResult(false, errorMessages);
         }
     }
-
     /**
-     * Saves a new JSON schema to storage with auto-generated ID
+     * Updates existing schema by ID with new schema content
+     * @param schemaId ID of the schema to update
+     * @param schemaNode new JSON schema content as JsonNode
+     * @return true if schema was updated, false if schema with given ID doesn't exist
+     */
+    public boolean updateSchema(int schemaId, JsonNode schemaNode) {
+        logger.info("Updating schema with ID: {}", schemaId);
+        
+        SchemaModel schemaModel = schemaStorage.get(schemaId);
+        if (schemaModel == null) {
+            logger.warn("Attempt to update non-existent schema with ID: {}", schemaId);
+            return false;
+        }
+        
+        schemaModel.setSchema(schemaNode);
+        logger.info("Schema with ID {} updated successfully", schemaId);
+        logger.debug("Updated schema content: {}", schemaNode);
+        return true;
+    }
+    
+    /**
+     * Saves a new JSON schema to storage with optional custom ID
      * @param name human-readable schema name
      * @param schemaNode JSON schema content as JsonNode
+     * @param customId custom ID for schema (if null, will be auto-generated)
      * @return generated schema ID
      */
-    public Integer saveSchema(String name, JsonNode schemaNode) {
-        logger.info("Saving new schema with name: '{}'", name);
+    public Integer saveSchema(String name, JsonNode schemaNode, Integer customId) {
+        logger.info("Saving new schema with name: '{}' and custom ID: {}", name, customId);
         
-        Integer schemaId = idCounter.getAndIncrement();
+        Integer schemaId;
+        if (customId != null) {
+            if (schemaStorage.containsKey(customId)) {
+                logger.warn("Attempt to save schema with existing ID: {}", customId);
+                throw new IllegalArgumentException("ID " + customId + " already in use");
+            }
+            schemaId = customId;
+            if (customId >= idCounter.get()) {
+                idCounter.set(customId + 1);
+            }
+        } else {
+            schemaId = idCounter.getAndIncrement();
+        }
+        
         SchemaModel schemaModel = new SchemaModel(schemaId, name, schemaNode);
         schemaStorage.put(schemaId, schemaModel);
         
