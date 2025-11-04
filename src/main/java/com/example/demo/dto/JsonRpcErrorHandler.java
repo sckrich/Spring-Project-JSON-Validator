@@ -1,6 +1,5 @@
 package com.example.demo.dto;
 
-
 import com.thetransactioncompany.jsonrpc2.JSONRPC2Error;
 import com.thetransactioncompany.jsonrpc2.JSONRPC2Response;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +13,7 @@ public class JsonRpcErrorHandler {
     public static final int PARSE_SCHEMA_ERROR = -32701;
     public static final int ID_ALREADY_IN_USE = -32800;
     public static final int ID_DOESNT_EXISTS = -32801;
+    public static final int SCHEMA_NOT_EXISTS = -32802;
     
     public static ResponseEntity<String> parseError(Object requestId) {
         return createErrorResponse(PARSE_JSON_ERROR, "Parse json error", requestId);
@@ -41,6 +41,10 @@ public class JsonRpcErrorHandler {
     
     public static ResponseEntity<String> idDoesntExist(Object requestId, String message) {
         return createErrorResponse(ID_DOESNT_EXISTS, message, requestId);
+    }
+    
+    public static ResponseEntity<String> schemaNotExists(Object requestId, String message) {
+        return createErrorResponse(SCHEMA_NOT_EXISTS, message, requestId);
     }
     
     public static JSONRPC2Response createJsonRpcErrorResponse(int code, String message, Object requestId) {

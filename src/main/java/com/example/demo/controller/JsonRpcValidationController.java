@@ -42,9 +42,10 @@ public class JsonRpcValidationController {
         System.out.println("DB_URL найден, loading schemas from DataBase...");
     }
 
+    
     /**
      * Handles incoming JSON-RPC requests for JSON validation
-     * Supported methods: validate, validateById, saveSchema, getAllSchemas, getSchema, getAllSchemasMetadata
+     * Supported methods: validate, validateById, saveSchema, getAllSchemas, getSchema, getAllSchemasMetadata, updateSchema
      */
     @PostMapping("/api/validation")
     public ResponseEntity<String> handleJsonRpc(@RequestBody String jsonRequest) {
@@ -124,6 +125,8 @@ public class JsonRpcValidationController {
                     return handleGetSchemaMethod(request);
                 case "getAllSchemasMetadata": 
                     return handleGetAllSchemasMetadataMethod(request);
+                case "updateSchema":
+                    return handleUpdateSchemaMethod(request);
                 default:
                     return JsonRpcErrorHandler.createJsonRpcErrorResponse(
                         JSONRPC2Error.METHOD_NOT_FOUND.getCode(), "Method not found", request.getID());
@@ -204,32 +207,60 @@ public class JsonRpcValidationController {
      * Handles the 'saveSchema' method - saves a new schema with name
      * Required parameters: name, schema
      */
-    private JSONRPC2Response handleSaveSchemaMethod(JSONRPC2Request request) {
-        Map<String, Object> params = request.getNamedParams();
-        Object nameObj = params.get("name");
-        Object schemaObj = params.get("schema");
-        
-        if (nameObj == null || schemaObj == null) {
-            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
-                JSONRPC2Error.INVALID_PARAMS.getCode(), "Missing name or schema parameters", request.getID());
-        }
-        
-        try {
-            String name = nameObj.toString();
-            JsonNode schemaNode = objectMapper.valueToTree(schemaObj);
-            Integer schemaId = validationService.saveSchema(name, schemaNode);
-            
-            return new JSONRPC2Response(
-                Map.of("schemaId", schemaId),
-                request.getID()
-            );
-            
-        } catch (Exception e) {
-            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
-                JSONRPC2Error.INTERNAL_ERROR.getCode(), "Schema save error: " + e.getMessage(), request.getID());
-        }
+    /**
+ * Handles the 'saveSchema' method - saves a new schema with name and optional custom ID
+ * Required parameters: name, schema
+ * Optional parameters: id (if not provided, will be auto-generated)
+ */
+private JSONRPC2Response handleSaveSchemaMethod(JSONRPC2Request request) {
+    Map<String, Object> params = request.getNamedParams();
+    Object nameObj = params.get("name");
+    Object schemaObj = params.get("schema");
+    Object idObj = params.get("id"); 
+    
+    if (nameObj == null || schemaObj == null) {
+        return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+            JSONRPC2Error.INVALID_PARAMS.getCode(), "Missing name or schema parameters", request.getID());
     }
-
+    
+    try {
+        String name = nameObj.toString();
+        JsonNode schemaNode = objectMapper.valueToTree(schemaObj);
+        
+        Integer customId = null;
+        if (idObj != null) {
+            if (idObj instanceof Number) {
+                customId = ((Number) idObj).intValue();
+            } else if (idObj instanceof String) {
+                try {
+                    customId = Integer.parseInt(idObj.toString());
+                } catch (NumberFormatException e) {
+                    return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                        JSONRPC2Error.INVALID_PARAMS.getCode(), "Invalid ID format. Must be a number.", request.getID());
+                }
+            } else {
+                return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                    JSONRPC2Error.INVALID_PARAMS.getCode(), "Invalid ID type. Must be a number.", request.getID());
+            }
+            Object existingSchema = validationService.getSchema(customId);
+            if (existingSchema != null) {
+                return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                    JsonRpcErrorHandler.ID_ALREADY_IN_USE, "ID " + customId + " already in use", request.getID());
+            }
+        }
+        
+        Integer schemaId = validationService.saveSchema(name, schemaNode, customId);
+        
+        return new JSONRPC2Response(
+            Map.of("schemaId", schemaId),
+            request.getID()
+        );
+        
+    } catch (Exception e) {
+        return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+            JSONRPC2Error.INTERNAL_ERROR.getCode(), "Schema save error: " + e.getMessage(), request.getID());
+    }
+}
     /**
      * Handles the 'getAllSchemas' method - retrieves all stored schemas with full content
      */
@@ -288,5 +319,56 @@ public class JsonRpcValidationController {
         result.put("schemas", allSchemasMetadata);
         
         return new JSONRPC2Response(result, request.getID());
+    }
+
+    /**
+     * Handles the 'updateSchema' method - updates existing schema by ID
+     * Required parameters: schemaId, schema
+     */
+    private JSONRPC2Response handleUpdateSchemaMethod(JSONRPC2Request request) {
+        Map<String, Object> params = request.getNamedParams();
+        Object schemaIdObj = params.get("schemaId");
+        Object schemaObj = params.get("schema");
+        
+        if (schemaIdObj == null || schemaObj == null) {
+            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                JSONRPC2Error.INVALID_PARAMS.getCode(), "Missing schemaId or schema parameters", request.getID());
+        }
+        
+        try {
+            int schemaId;
+            if (schemaIdObj instanceof Number) {
+                schemaId = ((Number) schemaIdObj).intValue();
+            } else {
+                schemaId = Integer.parseInt(schemaIdObj.toString());
+            }
+            
+            JsonNode schemaNode = objectMapper.valueToTree(schemaObj);
+            
+            Object existingSchema = validationService.getSchema(schemaId);
+            if (existingSchema == null) {
+                return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                    JsonRpcErrorHandler.SCHEMA_NOT_EXISTS, "Schema with ID " + schemaId + " does not exist", request.getID());
+            }
+            
+            boolean success = validationService.updateSchema(schemaId, schemaNode);
+            
+            if (success) {
+                return new JSONRPC2Response(
+                    Map.of("success", true, "schemaId", schemaId),
+                    request.getID()
+                );
+            } else {
+                return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                    JSONRPC2Error.INTERNAL_ERROR.getCode(), "Failed to update schema", request.getID());
+            }
+            
+        } catch (NumberFormatException e) {
+            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                JSONRPC2Error.INVALID_PARAMS.getCode(), "Invalid schema ID format. Must be a number.", request.getID());
+        } catch (Exception e) {
+            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                JSONRPC2Error.INTERNAL_ERROR.getCode(), "Schema update error: " + e.getMessage(), request.getID());
+        }
     }
 }
