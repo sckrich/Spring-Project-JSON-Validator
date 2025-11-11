@@ -105,7 +105,7 @@ public class JsonRpcValidationController {
 
             String method = request.getMethod();
             boolean requiresParams = !method.equals("getAllSchemas") && !method.equals("getAllSchemasMetadata");
-
+            
             if (requiresParams && request.getNamedParams() == null) {
                 return JsonRpcErrorHandler.createJsonRpcErrorResponse(
                     JSONRPC2Error.INVALID_PARAMS.getCode(), "Invalid params", request.getID());
@@ -126,6 +126,8 @@ public class JsonRpcValidationController {
                     return handleGetAllSchemasMetadataMethod(request);
                 case "updateSchema":
                     return handleUpdateSchemaMethod(request);
+                case "deleteSchema": 
+                    return handleDeleteSchemaMethod(request);
                 default:
                     return JsonRpcErrorHandler.createJsonRpcErrorResponse(
                         JSONRPC2Error.METHOD_NOT_FOUND.getCode(), "Method not found", request.getID());
@@ -136,7 +138,51 @@ public class JsonRpcValidationController {
                 JSONRPC2Error.INTERNAL_ERROR.getCode(), "Internal error: " + e.getMessage(), request.getID());
         }
     }
-
+    /**
+ * Handles the 'deleteSchema' method - deletes schema by ID
+ * Required parameters: schemaId
+ */
+private JSONRPC2Response handleDeleteSchemaMethod(JSONRPC2Request request) {
+    Map<String, Object> params = request.getNamedParams();
+    Object schemaIdObj = params.get("schemaId");
+    
+    if (schemaIdObj == null) {
+        return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+            JSONRPC2Error.INVALID_PARAMS.getCode(), "Missing schemaId parameter", request.getID());
+    }
+    
+    try {
+        Integer schemaId;
+        if (schemaIdObj instanceof Number) {
+            schemaId = ((Number) schemaIdObj).intValue();
+        } else {
+            schemaId = Integer.parseInt(schemaIdObj.toString());
+        }
+        if (!validationService.schemaExists(schemaId)) {
+            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                JsonRpcErrorHandler.SCHEMA_NOT_EXISTS, "Schema with ID " + schemaId + " not found", request.getID());
+        }
+        
+        boolean success = validationService.deleteSchema(schemaId);
+        
+        if (success) {
+            return new JSONRPC2Response(
+                Map.of("success", true, "deletedSchemaId", schemaId),
+                request.getID()
+            );
+        } else {
+            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                JSONRPC2Error.INTERNAL_ERROR.getCode(), "Failed to delete schema", request.getID());
+        }
+        
+    } catch (NumberFormatException e) {
+        return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+            JSONRPC2Error.INVALID_PARAMS.getCode(), "Invalid schema ID format. Must be a number.", request.getID());
+    } catch (Exception e) {
+        return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+            JSONRPC2Error.INTERNAL_ERROR.getCode(), "Schema deletion error: " + e.getMessage(), request.getID());
+    }
+}
     /**
      * Handles the 'validate' method - validates JSON against provided schema
      * Required parameters: schema, json
