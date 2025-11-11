@@ -4,8 +4,7 @@ HELP.md
 
 
 ### IntelliJ IDEA ###
-/wrapper/
-/target/
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/

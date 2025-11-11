@@ -1,0 +1,4 @@
+com\example\demo\service\JsonValidationService.class
+com\example\demo\DemoApplication.class
+com\example\demo\controller\JsonRpcValidationController.class
+com\example\demo\dto\JsonValidationResult.class
