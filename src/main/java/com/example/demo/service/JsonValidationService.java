@@ -103,7 +103,7 @@ public class JsonValidationService {
                 for (ValidationMessage error : errors) {
                     String errorMsg = error.getMessage() + " (path: " + error.getInstanceLocation() + ")";
                     errorMessages.add(errorMsg);
-                    logger.debug("Validation error: {}", errorMsg);
+                    logger.info("Validation error: {}", errorMsg);
                 }
                 logger.info("JSON validation completed - INVALID");
                 return new JsonValidationResult(false, errorMessages);
@@ -198,7 +198,7 @@ public class JsonValidationService {
                 entity.setChgDt(now);
                 
                 schemaRepository.save(entity);
-                logger.debug("Schema saved to database with ID: {}", schemaId);
+                logger.info("Schema saved to database with ID: {}", schemaId);
             }
             
             SchemaModel schemaModel = new SchemaModel(schemaId, name, schemaNode);
@@ -250,7 +250,7 @@ public class JsonValidationService {
                 }
             }
 
-            logger.debug("Retrieved schema: {}", schemaModel.getName());
+            logger.info("Retrieved schema: {}", schemaModel.getName());
             JsonNode schemaNode = schemaModel.getSchema();
             JsonSchema validatorSchema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V4).getSchema(schemaNode);
             Set<ValidationMessage> errors = validatorSchema.validate(dataNode);
@@ -261,7 +261,7 @@ public class JsonValidationService {
                 for (ValidationMessage error : errors) {
                     String errorMsg = error.getMessage() + " (path: " + error.getInstanceLocation() + ")";
                     errorMessages.add(errorMsg);
-                    logger.debug("Validation error: {}", errorMsg);
+                    logger.info("Validation error: {}", errorMsg);
                 }
                 logger.info("JSON validation completed - INVALID");
                 
@@ -292,7 +292,7 @@ public class JsonValidationService {
         if (!exists && schemaRepository != null) {
             exists = schemaRepository.existsBySchemaId(schemaId);
         }
-        logger.debug("Checked existence of schema ID {}: {}", schemaId, exists);
+        logger.info("Checked existence of schema ID {}: {}", schemaId, exists);
         return exists;
     }
 
@@ -301,7 +301,7 @@ public class JsonValidationService {
         try {
             if (schemaRepository != null && schemaRepository.existsBySchemaId(schemaId)) {
                 schemaRepository.deleteById(schemaId);
-                logger.debug("Schema deleted from database: {}", schemaId);
+                logger.info("Schema deleted from database: {}", schemaId);
             }
             
             SchemaModel removed = schemaStorage.remove(schemaId);
@@ -346,7 +346,7 @@ public class JsonValidationService {
         result.put("totalSchemas", schemasList.size());
         result.put("schemas", schemasList); 
         
-        logger.debug("Retrieved {} schemas", schemasList.size());
+        logger.info("Retrieved {} schemas", schemasList.size());
         return result;
     }
 
@@ -386,7 +386,7 @@ public class JsonValidationService {
         schemaInfo.put("uploadDate", schemaModel.getUploadDate());
         schemaInfo.put("schema", objectMapper.convertValue(schemaModel.getSchema(), Object.class));
         
-        logger.debug("Retrieved schema: {}", schemaModel.getName());
+        logger.info("Retrieved schema: {}", schemaModel.getName());
         return schemaInfo;
     }
 
@@ -410,9 +410,9 @@ public class JsonValidationService {
                     schemasList.add(metadata);
                 }
                 
-                logger.debug("Retrieved metadata for {} schemas from database", schemasList.size());
+                logger.info("Retrieved metadata for {} schemas from database", schemasList.size());
             } else {
-                logger.debug("Database not available, using in-memory storage");
+                logger.info("Database not available, using in-memory storage");
             }
             
         } catch (Exception e) {
@@ -431,7 +431,7 @@ public class JsonValidationService {
                 
                 schemasList.add(metadata);
             }
-            logger.debug("Retrieved metadata for {} schemas from cache", schemasList.size());
+            logger.info("Retrieved metadata for {} schemas from cache", schemasList.size());
         }
         
         result.put("totalSchemas", schemasList.size());

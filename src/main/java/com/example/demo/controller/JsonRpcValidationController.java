@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.annotation.PostConstruct;
 import java.util.Map;
 
 @RestController
@@ -22,26 +21,7 @@ public class JsonRpcValidationController {
     private JsonValidationService validationService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    /**
-     * If DB_URL exists - load schemas from DB
-     */
-    @PostConstruct
-    public void init() {
-        String dbUrl = System.getenv("DB_URL");
-        if (dbUrl != null && !dbUrl.trim().isEmpty()) {
-            loadSchemasFromDatabase();
-        }
-    }
-
-    /**
-     * Function for loading schemas from Data Base
-     */
-    private void loadSchemasFromDatabase() {
-        System.out.println("DB_URL найден, loading schemas from DataBase...");
-    }
-
-    
+   
     /**
      * Handles incoming JSON-RPC requests for JSON validation
      * Supported methods: validate, validateById, saveSchema, getAllSchemas, getSchema, getAllSchemasMetadata, updateSchema
