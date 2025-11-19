@@ -405,14 +405,21 @@ public class JsonValidationService {
                     metadata.put("id", entity.getSchemaId()); 
                     metadata.put("name", entity.getSchemaName());
                     metadata.put("description", entity.getDescription());
-                    metadata.put("chgDt", entity.getChgDt());
+                    
+                    if (entity.getChgDt() != null) {
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+                        String formattedDate = entity.getChgDt().format(formatter);
+                        metadata.put("uploadDate", formattedDate);
+                    } else {
+                        metadata.put("uploadDate", null);
+                    }
                     
                     schemasList.add(metadata);
                 }
                 
-                logger.info("Retrieved metadata for {} schemas from database", schemasList.size());
+                logger.debug("Retrieved metadata for {} schemas from database", schemasList.size());
             } else {
-                logger.info("Database not available, using in-memory storage");
+                logger.debug("Database not available, using in-memory storage");
             }
             
         } catch (Exception e) {
@@ -427,11 +434,16 @@ public class JsonValidationService {
                 Map<String, Object> metadata = new LinkedHashMap<>();
                 metadata.put("id", schemaId); 
                 metadata.put("name", schemaModel.getName());
-                metadata.put("uploadDate", schemaModel.getUploadDate());
+                
+                if (schemaModel.getUploadDate() != null) {
+                    metadata.put("uploadDate", schemaModel.getUploadDate());
+                } else {
+                    metadata.put("uploadDate", null);
+                }
                 
                 schemasList.add(metadata);
             }
-            logger.info("Retrieved metadata for {} schemas from cache", schemasList.size());
+            logger.debug("Retrieved metadata for {} schemas from cache", schemasList.size());
         }
         
         result.put("totalSchemas", schemasList.size());
