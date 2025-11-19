@@ -12,6 +12,5 @@ class DemoApplicationTests {
 
     @Test
     void contextLoads() {
-        // Пустой тест - просто проверяем загрузку контекста
     }
 }

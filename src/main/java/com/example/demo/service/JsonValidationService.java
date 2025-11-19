@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.SchemaModel.SchemaModel;
+import com.example.demo.dto.JsonRpcErrorHandler;
 import com.example.demo.dto.JsonValidationResult;
 import com.example.demo.DBEntity.SchemaEntity;
 import com.example.demo.Repository.SchemaRepository;
@@ -10,6 +11,8 @@ import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
+import com.thetransactioncompany.jsonrpc2.JSONRPC2Response;
+
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -25,11 +30,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Optional;
-
-/**
- * Validates JSON data against JSON Schema using networknt library
- * Provides schema storage and management capabilities
- */
 @Service
 public class JsonValidationService {
 
@@ -42,14 +42,18 @@ public class JsonValidationService {
     @Autowired(required = false)
     private SchemaRepository schemaRepository;
 
-    /**
-     * Load all schemas from DataBase after starting application
-     */
     @PostConstruct
-    @Transactional
-    public void loadAllSchemasFromDatabase() {
+    public void init() {
         if (schemaRepository == null) {
             logger.info("Database repository not available - using in-memory storage only");
+        } else {
+            logger.info("Database repository available - loading schemas from database");
+            loadAllSchemasFromDatabase();
+        }
+    }
+
+    public void loadAllSchemasFromDatabase() {
+        if (schemaRepository == null) {
             return;
         }
         
@@ -65,6 +69,9 @@ public class JsonValidationService {
                     entity.getSchemaName(), 
                     schemaNode
                 );
+                if (entity.getChgDt() != null) {
+                    schemaModel.setUploadDate(entity.getChgDt().toString());
+                }
                 schemaStorage.put(entity.getSchemaId(), schemaModel);
             }
             
@@ -82,9 +89,6 @@ public class JsonValidationService {
         }
     }
 
-    /**
-     * Validates JSON data against provided JSON schema
-     */
     public JsonValidationResult validateJson(JsonNode schemaNode, JsonNode dataNode) {
         logger.info("Starting JSON validation with provided schema");
         logger.debug("Schema: {}, Data: {}", schemaNode, dataNode);
@@ -116,9 +120,6 @@ public class JsonValidationService {
         }
     }
 
-    /**
-     * Updates existing schema by ID with new schema content
-     */
     @Transactional
     public boolean updateSchema(int schemaId, JsonNode schemaNode) {
         logger.info("Updating schema with ID: {}", schemaId);
@@ -130,18 +131,23 @@ public class JsonValidationService {
         }
         
         try {
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+            String formattedDate = now.format(formatter);
+            
             if (schemaRepository != null) {
                 Optional<SchemaEntity> existingEntity = schemaRepository.findBySchemaId(schemaId);
                 if (existingEntity.isPresent()) {
                     SchemaEntity entity = existingEntity.get();
                     entity.setJsonSchema(schemaNode.toString());
                     entity.setSchemaName(schemaModel.getName());
+                    entity.setChgDt(now);
                     schemaRepository.save(entity);
-                    logger.debug("Schema updated in database: {}", schemaId);
                 }
             }
             
             schemaModel.setSchema(schemaNode);
+            schemaModel.setUploadDate(formattedDate); 
             schemaStorage.put(schemaId, schemaModel);
             
             logger.info("Schema with ID {} updated successfully", schemaId);
@@ -150,16 +156,14 @@ public class JsonValidationService {
         } catch (Exception e) {
             logger.error("Error updating schema in database: {}", e.getMessage(), e);
             schemaModel.setSchema(schemaNode);
+            schemaModel.setUploadDate(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
             schemaStorage.put(schemaId, schemaModel);
             logger.info("Schema updated in in-memory storage only with ID: {}", schemaId);
             return true;
         }
     }
     
-    /**
-     * Saves a new JSON schema to storage with optional custom ID
-     */
-    @Transactional
+   @Transactional
     public Integer saveSchema(String name, JsonNode schemaNode, Integer customId) {
         logger.info("Saving new schema with name: '{}' and custom ID: {}", name, customId);
         
@@ -180,6 +184,10 @@ public class JsonValidationService {
             schemaId = idCounter.getAndIncrement();
         }
         
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        String formattedDate = now.format(formatter);
+        
         try {
             if (schemaRepository != null) {
                 SchemaEntity entity = new SchemaEntity();
@@ -187,12 +195,14 @@ public class JsonValidationService {
                 entity.setSchemaName(name);
                 entity.setJsonSchema(schemaNode.toString());
                 entity.setDescription("Schema: " + name);
+                entity.setChgDt(now);
                 
                 schemaRepository.save(entity);
                 logger.debug("Schema saved to database with ID: {}", schemaId);
             }
             
             SchemaModel schemaModel = new SchemaModel(schemaId, name, schemaNode);
+            schemaModel.setUploadDate(formattedDate); 
             schemaStorage.put(schemaId, schemaModel);
             
             logger.info("Schema saved successfully with ID: {}", schemaId);
@@ -201,16 +211,14 @@ public class JsonValidationService {
         } catch (Exception e) {
             logger.error("Error saving schema to database: {}", e.getMessage(), e);
             SchemaModel schemaModel = new SchemaModel(schemaId, name, schemaNode);
+            schemaModel.setUploadDate(formattedDate);
             schemaStorage.put(schemaId, schemaModel);
             logger.info("Schema saved to in-memory storage only with ID: {}", schemaId);
             return schemaId;
         }
     }
 
-    /**
-     * Validates JSON data against schema stored by ID
-     */
-    public JsonValidationResult validateJsonById(int schemaId, JsonNode dataNode) {
+    public JSONRPC2Response validateJsonById(int schemaId, JsonNode dataNode, Object requestId) {
         logger.info("Starting JSON validation with schema ID: {}", schemaId);
         logger.debug("Data to validate: {}", dataNode);
         
@@ -224,6 +232,9 @@ public class JsonValidationService {
                     if (entity.isPresent()) {
                         JsonNode schemaNode = objectMapper.readTree(entity.get().getJsonSchema());
                         schemaModel = new SchemaModel(schemaId, entity.get().getSchemaName(), schemaNode);
+                        if (entity.get().getChgDt() != null) {
+                            schemaModel.setUploadDate(entity.get().getChgDt().toString());
+                        }
                         schemaStorage.put(schemaId, schemaModel); 
                         logger.info("Loaded schema from database: {}", schemaId);
                     }
@@ -231,9 +242,11 @@ public class JsonValidationService {
                 
                 if (schemaModel == null) {
                     logger.warn("Schema with ID {} not found", schemaId);
-                    List<String> errorMessages = new ArrayList<>();
-                    errorMessages.add("SCHEMA_NOT_FOUND: Schema with ID " + schemaId + " not found");
-                    return new JsonValidationResult(false, errorMessages);
+                    return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                        JsonRpcErrorHandler.SCHEMA_NOT_EXISTS, 
+                        "Schema with ID " + schemaId + " not found", 
+                        requestId
+                    );
                 }
             }
 
@@ -251,23 +264,29 @@ public class JsonValidationService {
                     logger.debug("Validation error: {}", errorMsg);
                 }
                 logger.info("JSON validation completed - INVALID");
-                return new JsonValidationResult(false, errorMessages);
+                
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("valid", false);
+                result.put("errors", errorMessages);
+                
+                return new JSONRPC2Response(result, requestId);
             }
 
             logger.info("JSON validation against schema ID {} completed - VALID", schemaId);
-            return new JsonValidationResult(true);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("valid", true);
+            
+            return new JSONRPC2Response(result, requestId);
 
         } catch (Exception e) {
             logger.error("Exception during JSON validation with schema ID {}: {}", schemaId, e.getMessage(), e);
-            List<String> errorMessages = new ArrayList<>();
-            errorMessages.add("Validation error: " + e.getMessage());
-            return new JsonValidationResult(false, errorMessages);
+            return JsonRpcErrorHandler.createJsonRpcErrorResponse(
+                JsonRpcErrorHandler.PARSE_SCHEMA_ERROR, 
+                "Validation error: " + e.getMessage(), 
+                requestId
+            );
         }
     }
-
-    /**
-     * Checks if schema with given ID exists in storage
-     */
     public boolean schemaExists(Integer schemaId) {
         boolean exists = schemaStorage.containsKey(schemaId);
         if (!exists && schemaRepository != null) {
@@ -277,9 +296,6 @@ public class JsonValidationService {
         return exists;
     }
 
-    /**
-     * Deletes schema from storage by ID
-     */
     @Transactional
     public boolean deleteSchema(Integer schemaId) {
         try {
@@ -308,37 +324,32 @@ public class JsonValidationService {
         }
     }
 
-  /**
- * Retrieves all stored schemas with full content
- */
-public Map<String, Object> getAllSchemas() {
-    logger.info("Retrieving all schemas, total count: {}", schemaStorage.size());
-    
-    Map<String, Object> result = new LinkedHashMap<>();
-    List<Map<String, Object>> schemasList = new ArrayList<>();
-    
-    for (Map.Entry<Integer, SchemaModel> entry : schemaStorage.entrySet()) {
-        Integer schemaId = entry.getKey();
-        SchemaModel schemaModel = entry.getValue();
+    public Map<String, Object> getAllSchemas() {
+        logger.info("Retrieving all schemas, total count: {}", schemaStorage.size());
         
-        Map<String, Object> schemaInfo = new LinkedHashMap<>();
-        schemaInfo.put("id", schemaId); 
-        schemaInfo.put("name", schemaModel.getName());
-        schemaInfo.put("uploadDate", schemaModel.getUploadDate());
-        schemaInfo.put("schema", objectMapper.convertValue(schemaModel.getSchema(), Object.class));
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> schemasList = new ArrayList<>();
         
-        schemasList.add(schemaInfo);
+        for (Map.Entry<Integer, SchemaModel> entry : schemaStorage.entrySet()) {
+            Integer schemaId = entry.getKey();
+            SchemaModel schemaModel = entry.getValue();
+            
+            Map<String, Object> schemaInfo = new LinkedHashMap<>();
+            schemaInfo.put("id", schemaId); 
+            schemaInfo.put("name", schemaModel.getName());
+            schemaInfo.put("uploadDate", schemaModel.getUploadDate());
+            schemaInfo.put("schema", objectMapper.convertValue(schemaModel.getSchema(), Object.class));
+            
+            schemasList.add(schemaInfo);
+        }
+        
+        result.put("totalSchemas", schemasList.size());
+        result.put("schemas", schemasList); 
+        
+        logger.debug("Retrieved {} schemas", schemasList.size());
+        return result;
     }
-    
-    result.put("totalSchemas", schemasList.size());
-    result.put("schemas", schemasList); 
-    
-    logger.debug("Retrieved {} schemas", schemasList.size());
-    return result;
-}
-    /**
-     * Retrieves specific schema by ID with full content
-     */
+
     public Object getSchema(Integer schemaId) {
         logger.info("Retrieving schema with ID: {}", schemaId);
         
@@ -351,6 +362,9 @@ public Map<String, Object> getAllSchemas() {
                     try {
                         JsonNode schemaNode = objectMapper.readTree(entity.get().getJsonSchema());
                         schemaModel = new SchemaModel(schemaId, entity.get().getSchemaName(), schemaNode);
+                        if (entity.get().getChgDt() != null) {
+                            schemaModel.setUploadDate(entity.get().getChgDt().toString());
+                        }
                         schemaStorage.put(schemaId, schemaModel); 
                         logger.info("Loaded schema from database: {}", schemaId);
                     } catch (Exception e) {
@@ -376,71 +390,62 @@ public Map<String, Object> getAllSchemas() {
         return schemaInfo;
     }
 
-/**
- * Retrieves metadata for all schemas without full schema content
- */
-public Map<String, Object> getAllSchemasMetadata() {
-    logger.info("Retrieving metadata for all schemas");
-    
-    Map<String, Object> result = new LinkedHashMap<>();
-    List<Map<String, Object>> schemasList = new ArrayList<>();
-    
-    try {
-        if (schemaRepository != null) {
-            List<SchemaEntity> allSchemas = schemaRepository.findAllOrderedById();
+    public Map<String, Object> getAllSchemasMetadata() {
+        logger.info("Retrieving metadata for all schemas");
+        
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> schemasList = new ArrayList<>();
+        
+        try {
+            if (schemaRepository != null) {
+                List<SchemaEntity> allSchemas = schemaRepository.findAllOrderedById();
+                
+                for (SchemaEntity entity : allSchemas) {
+                    Map<String, Object> metadata = new LinkedHashMap<>();
+                    metadata.put("id", entity.getSchemaId()); 
+                    metadata.put("name", entity.getSchemaName());
+                    metadata.put("description", entity.getDescription());
+                    metadata.put("chgDt", entity.getChgDt());
+                    
+                    schemasList.add(metadata);
+                }
+                
+                logger.debug("Retrieved metadata for {} schemas from database", schemasList.size());
+            } else {
+                logger.debug("Database not available, using in-memory storage");
+            }
             
-            for (SchemaEntity entity : allSchemas) {
+        } catch (Exception e) {
+            logger.error("Error loading metadata from database, using cache: {}", e.getMessage());
+        }
+        
+        if (schemasList.isEmpty()) {
+            for (Map.Entry<Integer, SchemaModel> entry : schemaStorage.entrySet()) {
+                Integer schemaId = entry.getKey();
+                SchemaModel schemaModel = entry.getValue();
+                
                 Map<String, Object> metadata = new LinkedHashMap<>();
-                metadata.put("id", entity.getSchemaId()); 
-                metadata.put("name", entity.getSchemaName());
-                metadata.put("description", entity.getDescription());
-                metadata.put("chgDt", entity.getChgDt());
+                metadata.put("id", schemaId); 
+                metadata.put("name", schemaModel.getName());
+                metadata.put("uploadDate", schemaModel.getUploadDate());
                 
                 schemasList.add(metadata);
             }
-            
-            logger.debug("Retrieved metadata for {} schemas from database", schemasList.size());
-        } else {
-            logger.debug("Database not available, using in-memory storage");
+            logger.debug("Retrieved metadata for {} schemas from cache", schemasList.size());
         }
         
-    } catch (Exception e) {
-        logger.error("Error loading metadata from database, using cache: {}", e.getMessage());
+        result.put("totalSchemas", schemasList.size());
+        result.put("schemas", schemasList); 
+        
+        return result;
     }
-    
-    if (schemasList.isEmpty()) {
-        for (Map.Entry<Integer, SchemaModel> entry : schemaStorage.entrySet()) {
-            Integer schemaId = entry.getKey();
-            SchemaModel schemaModel = entry.getValue();
-            
-            Map<String, Object> metadata = new LinkedHashMap<>();
-            metadata.put("id", schemaId); 
-            metadata.put("name", schemaModel.getName());
-            metadata.put("uploadDate", schemaModel.getUploadDate());
-            
-            schemasList.add(metadata);
-        }
-        logger.debug("Retrieved metadata for {} schemas from cache", schemasList.size());
-    }
-    
-    result.put("totalSchemas", schemasList.size());
-    result.put("schemas", schemasList); 
-    
-    return result;
-}
 
-    /**
-     * Gets total number of stored schemas
-     */
     public int getSchemaCount() {
         int count = schemaStorage.size();
         logger.debug("Current schema count: {}", count);
         return count;
     }
 
-    /**
-     * Check if database is available
-     */
     public boolean isDatabaseAvailable() {
         return schemaRepository != null;
     }
